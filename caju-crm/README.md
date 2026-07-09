@@ -37,3 +37,5 @@ O app já vem com leads de exemplo para você ver o funil, os alertas e os gráf
 5. Follow-ups a cada 2 dias (máx. 3 → Perdido automático), lembrete de reunião 1 dia antes, follow-up de proposta 2 em 2 dias.
 6. Em "Respondeu": cola a resposta → IA sugere os 5 critérios de qualificação → você confirma → Lead Qualificado.
 7. **Dashboard**: métricas semanais (seg–dom) e mensais (mês-calendário), faturamento, pipeline em aberto e gráficos dos últimos 6 meses.
+
+atualizando deploy
