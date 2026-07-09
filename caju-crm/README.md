@@ -39,3 +39,4 @@ O app já vem com leads de exemplo para você ver o funil, os alertas e os gráf
 7. **Dashboard**: métricas semanais (seg–dom) e mensais (mês-calendário), faturamento, pipeline em aberto e gráficos dos últimos 6 meses.
 
 atualizando deploy
+
