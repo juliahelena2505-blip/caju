@@ -148,4 +148,100 @@ export function avaliarFollowups(leads, agora = new Date()) {
         }
       }
     }
-    if
+    if (lead.estagio === 'reuniao_agendada' && lead.reuniaoData) {
+      const dataR = new Date(lead.reuniaoData).getTime()
+      const diff = dataR - t
+      if (diff <= DIA && diff > 0) {
+        alerts.push({ leadId: lead.id, tipo: 'reuniao', atrasado: false, texto: `Reunião amanhã com ${nome} (${fmtDataHora(lead.reuniaoData)})` })
+      } else if (diff <= 0) {
+        alerts.push({ leadId: lead.id, tipo: 'reuniao', atrasado: true, texto: `A reunião com ${nome} já passou — marque como realizada ou reagende` })
+      }
+    }
+    if (lead.estagio === 'reuniao_realizada' && lead.proximoFollowup) {
+      const dataF = new Date(lead.proximoFollowup + 'T00:00:00').getTime()
+      if (t >= dataF) {
+        alerts.push({ leadId: lead.id, tipo: 'followup', atrasado: t - dataF >= DIA, texto: `Follow-up pós-reunião com ${nome} (marcado para ${fmtData(lead.proximoFollowup)})` })
+      }
+    }
+    if (lead.estagio === 'proposta') {
+      const desde = new Date(lead.ultimaInteracao || lead.estagioDesde).getTime()
+      const vencido = t - desde >= 2 * DIA
+      if (vencido) {
+        if ((lead.followupsFeitos || 0) >= 3) {
+          autoMoves.push({ leadId: lead.id, motivo: 'não respondeu proposta', nome })
+        } else {
+          alerts.push({ leadId: lead.id, tipo: 'followup', atrasado: t - desde >= 3 * DIA, texto: `Follow-up de proposta com ${nome} (${(lead.followupsFeitos || 0) + 1}º de 3)${lead.propostaValor ? ` — R$ ${Number(lead.propostaValor).toLocaleString('pt-BR')}` : ''}` })
+        }
+      }
+    }
+  }
+  return { alerts, autoMoves }
+}
+
+export function fmtData(iso) {
+  if (!iso) return ''
+  const d = new Date(iso.length === 10 ? iso + 'T00:00:00' : iso)
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+}
+
+export function fmtDataHora(iso) {
+  if (!iso) return ''
+  return new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+}
+
+export function fmtMoeda(v) {
+  return (Number(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+}
+
+function diasAtras(n, hora = 10) {
+  const d = new Date()
+  d.setDate(d.getDate() - n)
+  d.setHours(hora, 0, 0, 0)
+  return d.toISOString()
+}
+
+function seedLead(base, timeline) {
+  const lead = novoLead(base)
+  lead.criadoEm = diasAtras(timeline[0][1] + 1)
+  lead.estagioDesde = lead.criadoEm
+  lead.ultimaInteracao = lead.criadoEm
+  for (const [est, dias] of timeline) {
+    const data = diasAtras(dias)
+    const evTipo = EVENTO_POR_ESTAGIO[est]
+    if (evTipo) lead.eventos.push({ tipo: evTipo, data, valor: est === 'cliente' ? Number(lead.propostaValor) || 0 : undefined })
+    lead.estagio = est
+    lead.estagioDesde = data
+    lead.ultimaInteracao = data
+  }
+  return lead
+}
+
+function seedLeads() {
+  const a = (score, veredito, resumo) => ({ score, veredito, resumo, criterios: { alto_padrao: { atende: score >= 4, evidencia: 'Projetos residenciais de alto padrão no feed' }, frequencia_conteudo: { atende: score >= 3, evidencia: 'Posta cerca de 2x por semana' }, investe_marca: { atende: score >= 4, evidencia: 'Site no link da bio, fotos profissionais' }, operacao_estruturada: { atende: score >= 5, evidencia: 'Menciona equipe nos stories' }, presenca_sem_posicionamento: { atende: score >= 3, evidencia: 'Bio genérica, sem mensagem clara de diferencial' }, mostra_projeto_nao_expertise: { atende: score >= 2, evidencia: 'Feed só com fotos finais, sem falar de processo' } } })
+  const l1 = seedLead({ nome: 'Mariana Costa', handle: '@marianacosta.arq', analise: a(6, 'BALEIA', 'Escritório de alto padrão com presença ativa mas sem posicionamento claro. Perfil ideal.'), abordagem: 'Oii, Mariana! Tudo bem? Sei que você não faz ideia de quem eu sou hahaha...' }, [['abordagem_enviada', 68], ['respondeu', 66], ['lq', 64], ['reuniao_agendada', 62], ['reuniao_realizada', 58], ['proposta', 55], ['cliente', 50]])
+  l1.propostaValor = 7500
+  l1.eventos = l1.eventos.map((e) => (e.tipo === 'fechamento' ? { ...e, valor: 7500 } : e))
+  l1.qualificacao = { fit: true, objetivo: true, urgencia: true, investimento: true, autoridade: true }
+  l1.contato = 'WhatsApp (81) 9 9999-0001'
+  l1.notas = [{ data: diasAtras(50), texto: 'Fechou Consultoria Trimestral! 🎉' }]
+  const l2 = seedLead({ nome: 'Studio Vetor', handle: '@studiovetor', analise: a(5, 'BALEIA', 'Studio estruturado, conteúdo frequente, feed bonito mas sem mensagem de valor.'), abordagem: 'Oii! Seguinte... vou direto ao ponto...' }, [['abordagem_enviada', 34], ['respondeu', 31], ['lq', 28], ['reuniao_agendada', 26], ['reuniao_realizada', 22], ['proposta', 20], ['cliente', 15]])
+  l2.propostaValor = 4800
+  l2.eventos = l2.eventos.map((e) => (e.tipo === 'fechamento' ? { ...e, valor: 4800 } : e))
+  l2.qualificacao = { fit: true, objetivo: true, urgencia: true, investimento: true, autoridade: true }
+  const l3 = seedLead({ nome: 'Rafael Lins', handle: '@rafaellins.arquitetura', analise: a(5, 'BALEIA', 'Alto padrão, posta bastante, mas feed 100% foto final. Dor clara de posicionamento.'), abordagem: 'Oii, Rafael! Aqui é Julia...' }, [['abordagem_enviada', 9], ['respondeu', 7], ['lq', 6], ['reuniao_agendada', 5], ['reuniao_realizada', 3], ['proposta', 2]])
+  l3.propostaValor = 9000
+  l3.qualificacao = { fit: true, objetivo: true, urgencia: true, investimento: true, autoridade: true }
+  l3.followupsFeitos = 0
+  const l4 = seedLead({ nome: 'Ana Beatriz', handle: '@anabeatriz.arq', analise: a(4, 'VALE', 'Escritório em crescimento, conteúdo razoável, sem posicionamento definido.'), abordagem: 'Oii, Ana! Tudo bem?...' }, [['abordagem_enviada', 4], ['respondeu', 1]])
+  l4.respostaTexto = 'Oi Julia! Que legal, adorei a mensagem. Realmente sinto que meu Instagram não traz cliente nenhum haha. Como funciona seu trabalho?'
+  const l5 = seedLead({ nome: 'Coletivo Traço', handle: '@coletivotraco', analise: a(3, 'VALE', 'Perfil ativo, projetos médios, vale abordar.'), abordagem: 'Oii! Tudo bem?...' }, [['abordagem_enviada', 2]])
+  const l6 = seedLead({ nome: 'Pedro Amaral', handle: '@pedroamaral.arq', analise: a(6, 'BALEIA', 'Perfil excelente, alto padrão consolidado.'), abordagem: 'Oii, Pedro!...' }, [['abordagem_enviada', 40], ['respondeu', 38], ['lq', 36], ['reuniao_agendada', 34]])
+  l6.reuniaoData = new Date(Date.now() + DIA * 0.8).toISOString().slice(0, 16)
+  l6.qualificacao = { fit: true, objetivo: true, urgencia: true, investimento: true, autoridade: true }
+  const l7 = seedLead({ nome: 'Arq. Duarte', handle: '@arqduarte', analise: a(2, 'PASSA', 'Perfil parado, projetos pequenos. Não prioritário.'), abordagem: '' }, [['abordagem_enviada', 75], ['perdido', 68]])
+  l7.motivoPerda = 'não respondeu'
+  const l8 = seedLead({ nome: 'Camila Rocha', handle: '@camilarocha.interiores', analise: a(4, 'VALE', 'Bom volume de conteúdo, sem clareza de nicho.'), abordagem: 'Oii, Camila!...' }, [['abordagem_enviada', 45], ['respondeu', 43], ['perdido', 37]])
+  l8.motivoPerda = 'não qualificou'
+  const l9 = novoLead({ nome: 'Escritório Alameda', handle: '@escritorioalameda', analise: a(5, 'BALEIA', 'Operação estruturada, feed bonito sem posicionamento — perfil ideal.'), abordagem: 'Oii! Sei que você não me conhece hahaha...' })
+  return [l3, l4, l5, l6, l9, l1, l2, l7, l8]
+}
