@@ -1,7 +1,6 @@
 import { db } from '../firebase.js'
 import { doc, setDoc, getDoc, onSnapshot } from 'firebase/firestore'
 
-// ---------- Constantes ----------
 export const ESTAGIOS = [
   { id: 'a_abordar', label: 'A abordar' },
   { id: 'abordagem_enviada', label: 'Abordagem enviada' },
@@ -50,14 +49,10 @@ export async function loadState() {
   try {
     const docRef = doc(db, 'state', KEY)
     const docSnap = await getDoc(docRef)
-    
-    if (docSnap.exists()) {
-      return docSnap.data()
-    }
+    if (docSnap.exists()) return docSnap.data()
   } catch (e) {
     console.error('Falha ao ler Firestore', e)
   }
-  
   const seeded = { leads: seedLeads(), settings: { apiKey: '', model: 'claude-haiku-4-5-20251001', estiloPadrao: 'auto' } }
   await saveState(seeded)
   return seeded
@@ -75,9 +70,7 @@ export async function saveState(state) {
 export function onStateChange(callback) {
   const docRef = doc(db, 'state', KEY)
   return onSnapshot(docRef, (docSnap) => {
-    if (docSnap.exists()) {
-      callback(docSnap.data())
-    }
+    if (docSnap.exists()) callback(docSnap.data())
   })
 }
 
@@ -122,15 +115,7 @@ export function moverLead(lead, novoEstagio, extra = {}) {
   const now = new Date().toISOString()
   const evTipo = EVENTO_POR_ESTAGIO[novoEstagio]
   const eventos = evTipo ? [...lead.eventos, { tipo: evTipo, data: now, valor: novoEstagio === 'cliente' ? Number(lead.propostaValor) || 0 : undefined }] : lead.eventos
-  return {
-    ...lead,
-    ...extra,
-    estagio: novoEstagio,
-    estagioDesde: now,
-    ultimaInteracao: now,
-    followupsFeitos: 0,
-    eventos,
-  }
+  return { ...lead, ...extra, estagio: novoEstagio, estagioDesde: now, ultimaInteracao: now, followupsFeitos: 0, eventos }
 }
 
 export function addNota(lead, texto) {
@@ -150,10 +135,8 @@ export function avaliarFollowups(leads, agora = new Date()) {
   const alerts = []
   const autoMoves = []
   const t = agora.getTime()
-
   for (const lead of leads) {
     const nome = lead.nome || lead.handle || 'lead sem nome'
-
     if (lead.estagio === 'abordagem_enviada' || lead.estagio === 'respondeu') {
       const desde = new Date(lead.ultimaInteracao || lead.estagioDesde).getTime()
       const vencido = t - desde >= 2 * DIA
@@ -161,20 +144,8 @@ export function avaliarFollowups(leads, agora = new Date()) {
         if ((lead.followupsFeitos || 0) >= 3) {
           autoMoves.push({ leadId: lead.id, motivo: 'não respondeu', nome })
         } else {
-          alerts.push({
-            leadId: lead.id,
-            tipo: 'followup',
-            atrasado: t - desde >= 3 * DIA,
-            texto: `Follow-up com ${nome} (${(lead.followupsFeitos || 0) + 1}º de 3) — sem avanço há ${Math.floor((t - desde) / DIA)} dias`,
-          })
+          alerts.push({ leadId: lead.id, tipo: 'followup', atrasado: t - desde >= 3 * DIA, texto: `Follow-up com ${nome} (${(lead.followupsFeitos || 0) + 1}º de 3) — sem avanço há ${Math.floor((t - desde) / DIA)} dias` })
         }
       }
     }
-
-    if (lead.estagio === 'reuniao_agendada' && lead.reuniaoData) {
-      const dataR = new Date(lead.reuniaoData).getTime()
-      const diff = dataR - t
-      if (diff <= DIA && diff > 0) {
-        alerts.push({ leadId: lead.id, tipo: 'reuniao', atrasado: false, texto: `Reunião amanhã com ${nome} (${fmtDataHora(lead.reuniaoData)})` })
-      } else if (diff <= 0) {
-        alerts.push({
+    if
