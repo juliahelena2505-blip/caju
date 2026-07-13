@@ -14,27 +14,43 @@ const TABS = [
 ]
 
 export default function App() {
-  const [state, setState] = useState(null)
+  const [state, setState] = useState(() => {
+    try {
+      const cached = localStorage.getItem('caju-cache')
+      return cached ? JSON.parse(cached) : null
+    } catch {
+      return null
+    }
+  })
   const [tab, setTab] = useState('dashboard')
   const [toasts, setToasts] = useState([])
   const [leadAberto, setLeadAberto] = useState(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(!state)
   const autoRodou = useRef(false)
 
   useEffect(() => {
+    if (state) {
+      try {
+        localStorage.setItem('caju-cache', JSON.stringify(state))
+      } catch (e) {
+        console.error('Erro ao salvar cache', e)
+      }
+    }
+  }, [state])
+
+  useEffect(() => {
+    if (!isLoading) return
     loadState().then((initialState) => {
       setState(initialState)
       setIsLoading(false)
     })
-  }, [])
+  }, [isLoading])
 
   useEffect(() => {
     if (!state) return
-    
     const unsubscribe = onStateChange((newState) => {
       setState(newState)
     })
-    
     return () => unsubscribe()
   }, [state])
 
@@ -60,7 +76,6 @@ export default function App() {
 
   useEffect(() => {
     if (!state) return
-    
     const rodar = () => {
       setState((s) => {
         if (!s) return s
@@ -76,7 +91,6 @@ export default function App() {
         return { ...s, leads }
       })
     }
-    
     if (!autoRodou.current) {
       autoRodou.current = true
       rodar()
@@ -87,10 +101,10 @@ export default function App() {
 
   const lead = state?.leads.find((l) => l.id === leadAberto) || null
 
-  if (isLoading) {
+  if (!state) {
     return (
       <div className="app" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', fontSize: '18px' }}>
-        Carregando dados do Firebase...
+        {isLoading ? 'Carregando dados do Firebase...' : 'Inicializando...'}
       </div>
     )
   }
