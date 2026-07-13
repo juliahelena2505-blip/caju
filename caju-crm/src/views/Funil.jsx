@@ -1,9 +1,11 @@
 import React, { useState } from 'react'
 import { ESTAGIOS, PERDIDO, avaliarFollowups, fmtData, fmtMoeda } from '../lib/store.js'
 import { moverComRegras } from './mover.js'
+import NovoLeadModal from './NovoLeadModal.jsx'
 
 export default function Funil({ leads, updateLead, abrirLead, toast }) {
   const [overCol, setOverCol] = useState(null)
+  const [novoLeadAberto, setNovoLeadAberto] = useState(false)
   const { alerts } = avaliarFollowups(leads)
   const colunas = [...ESTAGIOS, PERDIDO]
 
@@ -19,9 +21,15 @@ export default function Funil({ leads, updateLead, abrirLead, toast }) {
 
   return (
     <div>
-      <p className="muted" style={{ margin: '4px 2px 10px' }}>
-        Arraste os cards entre colunas ou toque num card para abrir os detalhes e mover pelo seletor.
-      </p>
+      <div className="row" style={{ marginBottom: 12, alignItems: 'center' }}>
+        <p className="muted" style={{ flex: 1, margin: 0 }}>
+          Arraste os cards entre colunas ou toque num card para abrir os detalhes e mover pelo seletor.
+        </p>
+        <button className="btn mini" onClick={() => setNovoLeadAberto(true)}>
+          + Novo Lead
+        </button>
+      </div>
+
       <div className="board">
         {colunas.map((col) => {
           const cards = leads.filter((l) => l.estagio === col.id)
@@ -77,6 +85,16 @@ export default function Funil({ leads, updateLead, abrirLead, toast }) {
           )
         })}
       </div>
+
+      {novoLeadAberto && (
+        <NovoLeadModal
+          fechar={() => setNovoLeadAberto(false)}
+          onCriar={(lead) => {
+            updateLead(lead.id, (l) => lead)
+            toast(`${lead.nome || lead.handle} criado em "A abordar" ✔`)
+          }}
+        />
+      )}
     </div>
   )
 }
