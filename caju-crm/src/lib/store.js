@@ -1,4 +1,4 @@
-import { db } from './firebase.js'
+import { db } from '../firebase.js'
 import { doc, setDoc, getDoc, onSnapshot } from 'firebase/firestore'
 
 // ---------- Constantes ----------
