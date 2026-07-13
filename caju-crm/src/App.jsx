@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { loadState, saveState, avaliarFollowups, moverLead } from './lib/store.js'
+import { loadState, saveState, onStateChange, avaliarFollowups, moverLead } from './lib/store.js'
 import Analisar from './views/Analisar.jsx'
 import Funil from './views/Funil.jsx'
 import Dashboard from './views/Dashboard.jsx'
@@ -14,14 +14,34 @@ const TABS = [
 ]
 
 export default function App() {
-  const [state, setState] = useState(loadState)
+  const [state, setState] = useState(null)
   const [tab, setTab] = useState('dashboard')
   const [toasts, setToasts] = useState([])
-  const [leadAberto, setLeadAberto] = useState(null) // id do lead no modal
+  const [leadAberto, setLeadAberto] = useState(null)
+  const [isLoading, setIsLoading] = useState(true)
   const autoRodou = useRef(false)
 
-  // persistência
-  useEffect(() => saveState(state), [state])
+  useEffect(() => {
+    loadState().then((initialState) => {
+      setState(initialState)
+      setIsLoading(false)
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!state) return
+    
+    const unsubscribe = onStateChange((newState) => {
+      setState(newState)
+    })
+    
+    return () => unsubscribe()
+  }, [state])
+
+  useEffect(() => {
+    if (!state) return
+    saveState(state)
+  }, [state])
 
   const toast = (texto, warn = false) => {
     const id = Date.now() + Math.random()
@@ -29,16 +49,21 @@ export default function App() {
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 6000)
   }
 
-  const updateLeads = (fn) => setState((s) => ({ ...s, leads: fn(s.leads) }))
+  const updateLeads = (fn) => setState((s) => s ? { ...s, leads: fn(s.leads) } : s)
   const updateLead = (id, fn) => updateLeads((leads) => leads.map((l) => (l.id === id ? fn(l) : l)))
-  const setSettings = (settings) => setState((s) => ({ ...s, settings }))
+  const setSettings = (settings) => setState((s) => s ? { ...s, settings } : s)
 
-  // motor de follow-up: roda ao abrir e a cada minuto
-  const { alerts } = useMemo(() => avaliarFollowups(state.leads), [state.leads])
+  const { alerts } = useMemo(() => {
+    if (!state) return { alerts: [], autoMoves: [] }
+    return avaliarFollowups(state.leads)
+  }, [state?.leads])
 
   useEffect(() => {
+    if (!state) return
+    
     const rodar = () => {
       setState((s) => {
+        if (!s) return s
         const { autoMoves } = avaliarFollowups(s.leads)
         if (!autoMoves.length) return s
         const leads = s.leads.map((l) => {
@@ -51,15 +76,24 @@ export default function App() {
         return { ...s, leads }
       })
     }
+    
     if (!autoRodou.current) {
       autoRodou.current = true
       rodar()
     }
     const iv = setInterval(rodar, 60_000)
     return () => clearInterval(iv)
-  }, [])
+  }, [state])
 
-  const lead = state.leads.find((l) => l.id === leadAberto) || null
+  const lead = state?.leads.find((l) => l.id === leadAberto) || null
+
+  if (isLoading) {
+    return (
+      <div className="app" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', fontSize: '18px' }}>
+        Carregando dados do Firebase...
+      </div>
+    )
+  }
 
   return (
     <div className="app">
