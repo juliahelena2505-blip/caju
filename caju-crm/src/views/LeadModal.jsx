@@ -97,6 +97,14 @@ export default function LeadModal({ lead, settings, updateLead, fechar, toast })
     }
   }
 
+  const deletarLead = () => {
+    if (confirm(`Tem certeza que quer deletar "${lead.nome || lead.handle}"? Isso não pode ser desfeito.`)) {
+      updateLead(lead.id, (l) => null)
+      toast(`${lead.nome || lead.handle} deletado ✔`)
+      fechar()
+    }
+  }
+
   return (
     <div className="overlay" onClick={fechar}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -260,6 +268,12 @@ export default function LeadModal({ lead, settings, updateLead, fechar, toast })
             Perdido em {fmtData(lead.estagioDesde)} — motivo: <b>{lead.motivoPerda || 'não informado'}</b>
           </p>
         )}
+
+        <div className="row" style={{ marginBottom: 12 }}>
+          <button className="btn mini sec" onClick={deletarLead} style={{ color: 'var(--caju-danger)' }}>
+            🗑 Deletar Lead
+          </button>
+        </div>
 
         <hr className="soft" />
 
