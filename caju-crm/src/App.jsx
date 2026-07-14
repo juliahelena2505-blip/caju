@@ -150,7 +150,13 @@ export default function App() {
         />
       )}
       {tab === 'funil' && (
-        <Funil leads={state.leads} updateLead={updateLead} abrirLead={setLeadAberto} toast={toast} />
+        <Funil 
+          leads={state.leads} 
+          updateLead={updateLead}
+          updateLeads={updateLeads}
+          abrirLead={setLeadAberto} 
+          toast={toast} 
+        />
       )}
       {tab === 'dashboard' && (
         <Dashboard leads={state.leads} alerts={alerts} abrirLead={setLeadAberto} updateLead={updateLead} toast={toast} />
