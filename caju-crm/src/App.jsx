@@ -52,7 +52,7 @@ export default function App() {
       setState(newState)
     })
     return () => unsubscribe()
-  }, [state])
+  }, [])
 
   useEffect(() => {
     if (!state) return
