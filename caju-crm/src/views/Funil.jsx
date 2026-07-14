@@ -3,7 +3,7 @@ import { ESTAGIOS, PERDIDO, avaliarFollowups, fmtData, fmtMoeda } from '../lib/s
 import { moverComRegras } from './mover.js'
 import NovoLeadModal from './NovoLeadModal.jsx'
 
-export default function Funil({ leads, updateLead, abrirLead, toast }) {
+export default function Funil({ leads, updateLead, updateLeads, abrirLead, toast }) {
   const [overCol, setOverCol] = useState(null)
   const [novoLeadAberto, setNovoLeadAberto] = useState(false)
   const { alerts } = avaliarFollowups(leads)
@@ -90,7 +90,7 @@ export default function Funil({ leads, updateLead, abrirLead, toast }) {
         <NovoLeadModal
           fechar={() => setNovoLeadAberto(false)}
           onCriar={(lead) => {
-            updateLead(lead.id, (l) => lead)
+            updateLeads((leads) => [lead, ...leads])
             toast(`${lead.nome || lead.handle} criado em "A abordar" ✔`)
           }}
         />
