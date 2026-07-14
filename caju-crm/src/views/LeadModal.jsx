@@ -12,7 +12,7 @@ import {
 import { analisarResposta, gerarAbordagem, ApiError } from '../lib/api.js'
 import { moverComRegras } from './mover.js'
 
-export default function LeadModal({ lead, settings, updateLead, fechar, toast }) {
+export default function LeadModal({ lead, settings, updateLead, updateLeads, fechar, toast }) {
   const [nota, setNota] = useState('')
   const [analisandoResp, setAnalisandoResp] = useState(false)
   const [gerandoAbordagem, setGerandoAbordagem] = useState(false)
@@ -99,7 +99,7 @@ export default function LeadModal({ lead, settings, updateLead, fechar, toast })
 
   const deletarLead = () => {
     if (confirm(`Tem certeza que quer deletar "${lead.nome || lead.handle}"? Isso não pode ser desfeito.`)) {
-      updateLead(lead.id, (l) => null)
+      updateLeads((leads) => leads.filter((l) => l.id !== lead.id))
       toast(`${lead.nome || lead.handle} deletado ✔`)
       fechar()
     }
