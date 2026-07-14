@@ -170,6 +170,7 @@ export default function App() {
           lead={lead}
           settings={state.settings}
           updateLead={updateLead}
+          updateLeads={updateLeads}
           fechar={() => setLeadAberto(null)}
           toast={toast}
         />
