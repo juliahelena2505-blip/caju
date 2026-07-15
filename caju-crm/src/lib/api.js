@@ -52,18 +52,32 @@ async function chamarClaude({ settings, system, content }) {
 
 export function parseJSONSeguro(texto) {
   let t = (texto || '').trim()
-  // Remove cercas markdown (```json, ```, etc) com espaços e quebras
-  t = t.replace(/^```[\s\n]*(?:json)?/i, '').replace(/[\s\n]*```$/,'').trim()
-  // Se ainda começar com backticks, tira
-  t = t.replace(/^`+/, '').replace(/`+$/, '').trim()
-  // Extrai só a parte JSON (tudo entre { e })
+  
+  // Remove TODAS as variações de cercas markdown (backticks, quebras, espaços)
+  t = t.replace(/^```[\s\S]*?json\s*/i, '')     // ```json seguido de qualquer coisa
+  t = t.replace(/^```[\s\S]*?\s*/i, '')          // ``` seguido de qualquer coisa
+  t = t.replace(/[\s]*```[\s]*$/i, '')           // ``` no final com espaços
+  t = t.replace(/^`+[\s]*/g, '')                 // backticks no início
+  t = t.replace(/[\s]*`+$/g, '')                 // backticks no final
+  t = t.trim()
+  
+  // Força a extração: pega TUDO entre { e }, mesmo com lixo em volta
   const ini = t.indexOf('{')
   const fim = t.lastIndexOf('}')
-  if (ini >= 0 && fim > ini) t = t.slice(ini, fim + 1)
+  if (ini >= 0 && fim > ini) {
+    t = t.slice(ini, fim + 1)
+  }
+  
   try {
     return { ok: true, data: JSON.parse(t) }
-  } catch {
-    return { ok: false, raw: texto }
+  } catch (e) {
+    // Se o JSON tiver quebra mesmo assim, tenta remover caracteres de controle
+    try {
+      t = t.replace(/[\x00-\x1F]/g, ' ') // Remove caracteres de controle
+      return { ok: true, data: JSON.parse(t) }
+    } catch {
+      return { ok: false, raw: texto }
+    }
   }
 }
 
