@@ -52,7 +52,11 @@ async function chamarClaude({ settings, system, content }) {
 
 export function parseJSONSeguro(texto) {
   let t = (texto || '').trim()
-  t = t.replace(/^```(?:json)?/i, '').replace(/```$/,'').trim()
+  // Remove cercas markdown (```json, ```, etc) com espaços e quebras
+  t = t.replace(/^```[\s\n]*(?:json)?/i, '').replace(/[\s\n]*```$/,'').trim()
+  // Se ainda começar com backticks, tira
+  t = t.replace(/^`+/, '').replace(/`+$/, '').trim()
+  // Extrai só a parte JSON (tudo entre { e })
   const ini = t.indexOf('{')
   const fim = t.lastIndexOf('}')
   if (ini >= 0 && fim > ini) t = t.slice(ini, fim + 1)
@@ -139,16 +143,20 @@ export async function gerarAbordagem({ settings, analise, nome, handle, estilo, 
     .map(([k, v]) => `- ${k}: ${v.atende ? 'sim' : 'não'} (${v.evidencia})`)
     .join('\n')
 
+  const blocoAnalise = analise
+    ? `Veredito: ${analise.veredito} (score ${analise.score}/6)
+Resumo: ${analise.resumo}
+Critérios:
+${evid}`
+    : `Este lead foi adicionado manualmente, sem análise de print. Escreva uma abordagem mais genérica dentro do tom, apoiada nas observações abaixo (se houver). Não invente detalhes específicos do perfil que não foram informados.`
+
   const content = [
     {
       type: 'text',
       text: `Perfil analisado:
 Nome: ${nome || '[nome desconhecido]'}
 Instagram: ${handle || 'não informado'}
-Veredito: ${analise?.veredito} (score ${analise?.score}/6)
-Resumo: ${analise?.resumo}
-Critérios:
-${evid}
+${blocoAnalise}
 ${observacoes ? `Observações extras da Julia: ${observacoes}` : ''}
 
 ${estiloTxt}
