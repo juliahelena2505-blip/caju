@@ -51,30 +51,40 @@ async function chamarClaude({ settings, system, content }) {
 }
 
 export function parseJSONSeguro(texto) {
-  let t = (texto || '').trim()
+  if (!texto) return { ok: false, raw: texto }
   
-  // Remove TODAS as variações de cercas markdown (backticks, quebras, espaços)
-  t = t.replace(/^```[\s\S]*?json\s*/i, '')     // ```json seguido de qualquer coisa
-  t = t.replace(/^```[\s\S]*?\s*/i, '')          // ``` seguido de qualquer coisa
-  t = t.replace(/[\s]*```[\s]*$/i, '')           // ``` no final com espaços
-  t = t.replace(/^`+[\s]*/g, '')                 // backticks no início
-  t = t.replace(/[\s]*`+$/g, '')                 // backticks no final
+  let t = texto.trim()
+  
+  // Remove QUALQUER coisa que não seja o JSON puro
+  // Começa removendo blocos de código markdown inteiros
+  t = t.replace(/^```[\s\S]*?```/gm, '') // Remove blocos ``` ... ```
   t = t.trim()
   
-  // Força a extração: pega TUDO entre { e }, mesmo com lixo em volta
-  const ini = t.indexOf('{')
+  // Remove backticks soltos do início e final
+  t = t.replace(/^`+/g, '').replace(/`+$/g, '').trim()
+  
+  // Remove a palavra "json" se estiver no início
+  t = t.replace(/^json\s*/i, '').trim()
+  
+  // Extrai APENAS o conteúdo entre { e }
+  const inicio = t.indexOf('{')
   const fim = t.lastIndexOf('}')
-  if (ini >= 0 && fim > ini) {
-    t = t.slice(ini, fim + 1)
+  
+  if (inicio < 0 || fim < 0 || fim <= inicio) {
+    return { ok: false, raw: texto }
   }
   
+  t = t.substring(inicio, fim + 1).trim()
+  
   try {
-    return { ok: true, data: JSON.parse(t) }
+    const dados = JSON.parse(t)
+    return { ok: true, data: dados }
   } catch (e) {
-    // Se o JSON tiver quebra mesmo assim, tenta remover caracteres de controle
+    // Última tentativa: remove espaços estranhos e caracteres de controle
     try {
-      t = t.replace(/[\x00-\x1F]/g, ' ') // Remove caracteres de controle
-      return { ok: true, data: JSON.parse(t) }
+      t = t.replace(/[\x00-\x1F\x7F]/g, ' ')
+      const dados = JSON.parse(t)
+      return { ok: true, data: dados }
     } catch {
       return { ok: false, raw: texto }
     }
