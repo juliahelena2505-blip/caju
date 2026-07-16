@@ -8,15 +8,15 @@ import {
   concluirFollowup,
   fmtData,
   fmtDataHora,
+  moverLead,
 } from '../lib/store.js'
 import { analisarResposta, gerarAbordagem, ApiError } from '../lib/api.js'
 import { moverComRegras } from './mover.js'
 
-export default function LeadModal({ lead, settings, updateLead, updateLeads, fechar, toast }) {
+export default function LeadModal({ lead, settings, updateLead, fechar, toast }) {
   const [nota, setNota] = useState('')
   const [analisandoResp, setAnalisandoResp] = useState(false)
   const [gerandoAbordagem, setGerandoAbordagem] = useState(false)
-  const [estiloAbordagem, setEstiloAbordagem] = useState('auto')
   const [motivoSel, setMotivoSel] = useState(MOTIVOS_PERDA[0])
   const set = (patch) => updateLead(lead.id, (l) => ({ ...l, ...patch }))
 
@@ -69,25 +69,6 @@ export default function LeadModal({ lead, settings, updateLead, updateLeads, fec
     }
   }
 
-  const gerarAbord = async () => {
-    setGerandoAbordagem(true)
-    try {
-      const texto = await gerarAbordagem({
-        settings,
-        analise: lead.analise,
-        nome: lead.nome,
-        handle: lead.handle,
-        estilo: estiloAbordagem,
-      })
-      set({ abordagem: texto })
-      toast('Abordagem gerada! 🎉')
-    } catch (e) {
-      toast(e instanceof ApiError ? e.friendly : 'Erro ao gerar a abordagem.', true)
-    } finally {
-      setGerandoAbordagem(false)
-    }
-  }
-
   const copiarAbordagem = async () => {
     try {
       await navigator.clipboard.writeText(lead.abordagem || '')
@@ -97,11 +78,13 @@ export default function LeadModal({ lead, settings, updateLead, updateLeads, fec
     }
   }
 
-  const deletarLead = () => {
-    if (confirm(`Tem certeza que quer deletar "${lead.nome || lead.handle}"? Isso não pode ser desfeito.`)) {
-      updateLeads((leads) => leads.filter((l) => l.id !== lead.id))
-      toast(`${lead.nome || lead.handle} deletado ✔`)
-      fechar()
+  const marcaTarefa = (key) => {
+    const eng = { ...lead.engajamento, [key]: true, [key + 'Data']: new Date().toISOString() }
+    set({ engajamento: eng })
+    
+    // Se marcou a abordagem, oferece mover
+    if (key === 'abordagem' && lead.estagio === 'engajamento') {
+      toast('Tarefa marcada ✔ Agora você pode enviar a abordagem!')
     }
   }
 
@@ -130,6 +113,7 @@ export default function LeadModal({ lead, settings, updateLead, updateLeads, fec
           {lead.followupsFeitos || 0}/3
         </p>
 
+        {/* Mover (funciona bem no celular) */}
         <div className="row">
           <label className="field grow" style={{ marginBottom: 6 }}>
             <span>Mover para</span>
@@ -153,41 +137,91 @@ export default function LeadModal({ lead, settings, updateLead, updateLeads, fec
           </label>
         </div>
 
-        {lead.estagio === 'a_abordar' && (
-          <div className="card" style={{ background: 'var(--caju-soft)' }}>
-            <h3>Abordagem pronta para envio</h3>
-            <textarea rows={6} value={lead.abordagem || ''} onChange={(e) => set({ abordagem: e.target.value })} />
-            <div style={{ marginTop: 8, marginBottom: 10 }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
-                <span>Gerar com IA</span>
-                <select value={estiloAbordagem} onChange={(e) => setEstiloAbordagem(e.target.value)} style={{ flex: 1 }}>
-                  <option value="auto">Estilo automático</option>
-                  <option value="longa">Mensagem longa</option>
-                  <option value="audio">Estilo áudio</option>
-                  <option value="direto">Direto ao ponto</option>
-                </select>
-                <button className="btn mini" onClick={gerarAbord} disabled={gerandoAbordagem || !lead.nome}>
-                  {gerandoAbordagem ? 'Gerando…' : 'Gerar'}
-                </button>
+        {/* Engajamento: checklist de tarefas */}
+        {lead.estagio === 'engajamento' && (
+          <div className="card" style={{ background: 'var(--folha-soft)' }}>
+            <h3>Cadência de Engajamento (4 dias)</h3>
+            <p className="tiny">Marque as tarefas conforme as fazer. Quando completar todas, envie a abordagem.</p>
+            {[
+              { dia: 0, nome: 'Seguir + curtir 2 fotos', key: 'seguir' },
+              { dia: 1, nome: 'Responder um story', key: 'story' },
+              { dia: 2, nome: 'Comentar em post', key: 'comentar' },
+              { dia: 3, nome: 'Enviar abordagem', key: 'abordagem' },
+            ].map((t) => (
+              <label key={t.key} className={'qcrit' + (lead.engajamento?.[t.key] ? ' ok' : '')}>
+                <input
+                  type="checkbox"
+                  checked={!!lead.engajamento?.[t.key]}
+                  onChange={() => marcaTarefa(t.key)}
+                />
+                <div>
+                  <b>Dia {t.dia + 1}: {t.nome}</b>
+                  {lead.engajamento?.[t.key + 'Data'] && (
+                    <div className="ev">Feito em {fmtDataHora(lead.engajamento[t.key + 'Data'])}</div>
+                  )}
+                </div>
               </label>
-            </div>
-            <div className="row" style={{ marginTop: 8 }}>
-              <button className="btn sec" onClick={copiarAbordagem}>
-                Copiar
+            ))}
+            <div className="row" style={{ marginTop: 8, gap: 4 }}>
+              <button className="btn" onClick={() => mover('abordagem_enviada')} style={{ flex: 1 }}>
+                ✔ Enviar abordagem
               </button>
-              <button className="btn" onClick={() => mover('abordagem_enviada')}>
-                Enviei ✔
+              <p className="tiny">Você pode enviar a qualquer momento, não precisa completar todas as tarefas.</p>
+            </div>
+          </div>
+        )}
+
+        {/* Abordagem em engajamento: gerar ou editar */}
+        {lead.estagio === 'engajamento' && (
+          <div className="card" style={{ background: 'var(--caju-soft)' }}>
+            <h3>{lead.abordagem ? 'Abordagem pronta para envio' : 'Abordagem'}</h3>
+            {!lead.abordagem && (
+              <p className="tiny">
+                Este lead ainda não tem abordagem. Escreva a sua ou gere uma com IA no seu tom
+                {!lead.analise && ' (vou usar suas anotações do histórico como contexto)'}.
+              </p>
+            )}
+            <textarea rows={6} value={lead.abordagem || ''} onChange={(e) => set({ abordagem: e.target.value })} />
+            <div className="row" style={{ marginTop: 8 }}>
+              <button
+                className="btn sec"
+                disabled={gerandoAbordagem}
+                onClick={async () => {
+                  setGerandoAbordagem(true)
+                  try {
+                    const texto = await gerarAbordagem({
+                      settings,
+                      analise: lead.analise,
+                      nome: lead.nome,
+                      handle: lead.handle,
+                      estilo: lead.estiloAbordagem || settings.estiloPadrao || 'auto',
+                      observacoes: (lead.notas || []).map((n) => n.texto).join(' · '),
+                    })
+                    set({ abordagem: texto.trim() })
+                  } catch (e) {
+                    toast(e instanceof ApiError ? e.friendly : 'Não consegui gerar a abordagem.', true)
+                  } finally {
+                    setGerandoAbordagem(false)
+                  }
+                }}
+              >
+                {gerandoAbordagem ? 'Escrevendo…' : lead.abordagem ? 'Gerar outra com IA' : 'Gerar com IA'}
+              </button>
+              <button className="btn sec" onClick={copiarAbordagem} disabled={!lead.abordagem}>
+                Copiar
               </button>
             </div>
           </div>
         )}
 
+        {/* Ações rápidas: follow-up */}
         {(lead.estagio === 'abordagem_enviada' || lead.estagio === 'respondeu' || lead.estagio === 'proposta') && (
           <button className="btn ghost" style={{ marginBottom: 10 }} onClick={() => updateLead(lead.id, concluirFollowup)}>
             Marcar follow-up feito ({(lead.followupsFeitos || 0) + 1}º de 3) — reinicia os 2 dias
           </button>
         )}
 
+        {/* Qualificação em "Respondeu" */}
         {lead.estagio === 'respondeu' && (
           <div className="card">
             <h3>Qualificação (os 5 são obrigatórios)</h3>
@@ -228,6 +262,7 @@ export default function LeadModal({ lead, settings, updateLead, updateLeads, fec
           </div>
         )}
 
+        {/* Reunião agendada */}
         {lead.estagio === 'reuniao_agendada' && (
           <label className="field">
             <span>Data e hora da reunião (lembrete automático 1 dia antes)</span>
@@ -239,17 +274,7 @@ export default function LeadModal({ lead, settings, updateLead, updateLeads, fec
           </label>
         )}
 
-        {lead.estagio === 'reuniao_realizada' && (
-          <label className="field">
-            <span>Próximo follow-up (você escolhe a data)</span>
-            <input
-              type="date"
-              value={lead.proximoFollowup || ''}
-              onChange={(e) => set({ proximoFollowup: e.target.value })}
-            />
-          </label>
-        )}
-
+        {/* Valor da proposta */}
         {['proposta', 'cliente'].includes(lead.estagio) && (
           <label className="field">
             <span>Valor da proposta (R$)</span>
@@ -269,14 +294,9 @@ export default function LeadModal({ lead, settings, updateLead, updateLeads, fec
           </p>
         )}
 
-        <div className="row" style={{ marginBottom: 12 }}>
-          <button className="btn mini sec" onClick={deletarLead} style={{ color: 'var(--caju-danger)' }}>
-            🗑 Deletar Lead
-          </button>
-        </div>
-
         <hr className="soft" />
 
+        {/* Contato */}
         <label className="field">
           <span>Dados de contato</span>
           <input
@@ -287,6 +307,7 @@ export default function LeadModal({ lead, settings, updateLead, updateLeads, fec
           />
         </label>
 
+        {/* Análise resumida */}
         {lead.analise && (
           <details style={{ marginBottom: 12 }}>
             <summary className="muted" style={{ cursor: 'pointer' }}>
@@ -305,7 +326,8 @@ export default function LeadModal({ lead, settings, updateLead, updateLeads, fec
           </details>
         )}
 
-        {lead.estagio !== 'a_abordar' && lead.abordagem && (
+        {/* Abordagem (fora do estágio engajamento) */}
+        {lead.estagio !== 'engajamento' && lead.abordagem && (
           <details style={{ marginBottom: 12 }}>
             <summary className="muted" style={{ cursor: 'pointer' }}>
               Ver abordagem enviada
@@ -314,6 +336,7 @@ export default function LeadModal({ lead, settings, updateLead, updateLeads, fec
           </details>
         )}
 
+        {/* Log de interações */}
         <h3 style={{ fontSize: 15, marginBottom: 6 }}>Histórico de interações</h3>
         <div className="row">
           <input
