@@ -19,7 +19,7 @@ const ESTILOS = [
 ]
 
 export default function Analisar({ settings, onCriarLead, toast }) {
-  const [img, setImg] = useState(null) // { base64, mediaType, preview }
+  const [img, setImg] = useState(null)
   const [obs, setObs] = useState('')
   const [nome, setNome] = useState('')
   const [handle, setHandle] = useState('')
