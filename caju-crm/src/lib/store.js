@@ -1,4 +1,4 @@
-import { loadLeadsFromFirebase, saveLead, saveAllLeads } from './firebase.js'
+import { loadLeadsFromFirebase, saveLead, saveAllLeads } from '../firebase.js'
 
 // ---------- Constantes ----------
 export const ESTAGIOS = [
