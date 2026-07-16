@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { loadState, saveState, onStateChange, avaliarFollowups, moverLead } from './lib/store.js'
+import { loadState, saveState, avaliarFollowups, moverLead } from './lib/store.js'
 import Analisar from './views/Analisar.jsx'
 import Funil from './views/Funil.jsx'
 import Dashboard from './views/Dashboard.jsx'
@@ -14,50 +14,14 @@ const TABS = [
 ]
 
 export default function App() {
-  const [state, setState] = useState(() => {
-    try {
-      const cached = localStorage.getItem('caju-cache')
-      return cached ? JSON.parse(cached) : null
-    } catch {
-      return null
-    }
-  })
+  const [state, setState] = useState(loadState)
   const [tab, setTab] = useState('dashboard')
   const [toasts, setToasts] = useState([])
   const [leadAberto, setLeadAberto] = useState(null)
-  const [isLoading, setIsLoading] = useState(!state)
   const autoRodou = useRef(false)
 
-  useEffect(() => {
-    if (state) {
-      try {
-        localStorage.setItem('caju-cache', JSON.stringify(state))
-      } catch (e) {
-        console.error('Erro ao salvar cache', e)
-      }
-    }
-  }, [state])
-
-  useEffect(() => {
-    if (!isLoading) return
-    loadState().then((initialState) => {
-      setState(initialState)
-      setIsLoading(false)
-    })
-  }, [isLoading])
-
-  useEffect(() => {
-    if (!state) return
-    const unsubscribe = onStateChange((newState) => {
-      setState(newState)
-    })
-    return () => unsubscribe()
-  }, [])
-
-  useEffect(() => {
-    if (!state) return
-    saveState(state)
-  }, [state])
+  // persistência
+  useEffect(() => saveState(state), [state])
 
   const toast = (texto, warn = false) => {
     const id = Date.now() + Math.random()
@@ -65,20 +29,16 @@ export default function App() {
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 6000)
   }
 
-  const updateLeads = (fn) => setState((s) => s ? { ...s, leads: fn(s.leads) } : s)
+  const updateLeads = (fn) => setState((s) => ({ ...s, leads: fn(s.leads) }))
   const updateLead = (id, fn) => updateLeads((leads) => leads.map((l) => (l.id === id ? fn(l) : l)))
-  const setSettings = (settings) => setState((s) => s ? { ...s, settings } : s)
+  const setSettings = (settings) => setState((s) => ({ ...s, settings }))
 
-  const { alerts } = useMemo(() => {
-    if (!state) return { alerts: [], autoMoves: [] }
-    return avaliarFollowups(state.leads)
-  }, [state?.leads])
+  // motor de follow-up: roda ao abrir e a cada minuto
+  const { alerts } = useMemo(() => avaliarFollowups(state.leads), [state.leads])
 
   useEffect(() => {
-    if (!state) return
     const rodar = () => {
       setState((s) => {
-        if (!s) return s
         const { autoMoves } = avaliarFollowups(s.leads)
         if (!autoMoves.length) return s
         const leads = s.leads.map((l) => {
@@ -97,17 +57,9 @@ export default function App() {
     }
     const iv = setInterval(rodar, 60_000)
     return () => clearInterval(iv)
-  }, [state])
+  }, [])
 
-  const lead = state?.leads.find((l) => l.id === leadAberto) || null
-
-  if (!state) {
-    return (
-      <div className="app" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', fontSize: '18px' }}>
-        {isLoading ? 'Carregando dados do Firebase...' : 'Inicializando...'}
-      </div>
-    )
-  }
+  const lead = state.leads.find((l) => l.id === leadAberto) || null
 
   return (
     <div className="app">
@@ -143,19 +95,22 @@ export default function App() {
           settings={state.settings}
           onCriarLead={(l) => {
             updateLeads((leads) => [l, ...leads])
-            toast(`${l.nome || l.handle} adicionado ao funil em "A abordar" ✔`)
+            toast(`${l.nome || l.handle} adicionado ao funil em "Engajamento" ✔`)
             setTab('funil')
           }}
           toast={toast}
         />
       )}
       {tab === 'funil' && (
-        <Funil 
-          leads={state.leads} 
+        <Funil
+          leads={state.leads}
           updateLead={updateLead}
-          updateLeads={updateLeads}
-          abrirLead={setLeadAberto} 
-          toast={toast} 
+          abrirLead={setLeadAberto}
+          toast={toast}
+          onCriarLead={(l) => {
+            updateLeads((leads) => [l, ...leads])
+            toast(`${l.nome || l.handle} adicionado em "Engajamento" ✔`)
+          }}
         />
       )}
       {tab === 'dashboard' && (
@@ -170,7 +125,6 @@ export default function App() {
           lead={lead}
           settings={state.settings}
           updateLead={updateLead}
-          updateLeads={updateLeads}
           fechar={() => setLeadAberto(null)}
           toast={toast}
         />
