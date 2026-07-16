@@ -14,14 +14,27 @@ const TABS = [
 ]
 
 export default function App() {
-  const [state, setState] = useState(loadState)
+  const [state, setState] = useState({ leads: [], settings: { apiKey: '', model: 'claude-haiku-4-5-20251001', estiloPadrao: 'auto' } })
   const [tab, setTab] = useState('dashboard')
   const [toasts, setToasts] = useState([])
   const [leadAberto, setLeadAberto] = useState(null)
+  const [carregando, setCarregando] = useState(true)
   const autoRodou = useRef(false)
 
+  // Carrega estado do Firebase na primeira vez
+  useEffect(() => {
+    loadState().then((s) => {
+      setState(s)
+      setCarregando(false)
+    })
+  }, [])
+
   // persistência
-  useEffect(() => saveState(state), [state])
+  useEffect(() => {
+    if (!carregando) {
+      saveState(state)
+    }
+  }, [state, carregando])
 
   const toast = (texto, warn = false) => {
     const id = Date.now() + Math.random()
@@ -60,6 +73,14 @@ export default function App() {
   }, [])
 
   const lead = state.leads.find((l) => l.id === leadAberto) || null
+
+  if (carregando) {
+    return (
+      <div className="app" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+        <p className="muted">Carregando leads...</p>
+      </div>
+    )
+  }
 
   return (
     <div className="app">
