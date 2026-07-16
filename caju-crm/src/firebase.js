@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app'
-import { getFirestore, doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore'
+import { getFirestore, doc, setDoc, getDoc } from 'firebase/firestore'
 
 const firebaseConfig = {
   apiKey: "AIzaSyBYkhEXqSLXNx8-dwNPmDFnzU0Kctc|SOI",
@@ -14,37 +14,27 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig)
 export const db = getFirestore(app)
 
-// Traz todos os leads do Firestore
+// Carrega o estado completo de state/appState
 export async function loadLeadsFromFirebase() {
   try {
-    const leadsCol = collection(db, 'leads')
-    const snapshot = await getDocs(leadsCol)
-    const leads = []
-    snapshot.forEach((doc) => {
-      leads.push({ id: doc.id, ...doc.data() })
-    })
-    return leads
+    const docRef = doc(db, 'state', 'appState')
+    const docSnap = await getDoc(docRef)
+    if (docSnap.exists()) {
+      const data = docSnap.data()
+      return data.leads || []
+    }
+    return []
   } catch (e) {
     console.error('Erro ao carregar leads do Firebase:', e)
     return []
   }
 }
 
-// Salva um lead no Firestore
-export async function saveLead(lead) {
-  try {
-    await setDoc(doc(db, 'leads', lead.id), lead)
-  } catch (e) {
-    console.error('Erro ao salvar lead:', e)
-  }
-}
-
-// Salva todos os leads (batch)
+// Salva o estado completo
 export async function saveAllLeads(leads) {
   try {
-    for (const lead of leads) {
-      await setDoc(doc(db, 'leads', lead.id), lead)
-    }
+    const docRef = doc(db, 'state', 'appState')
+    await setDoc(docRef, { leads }, { merge: true })
   } catch (e) {
     console.error('Erro ao salvar leads:', e)
   }
