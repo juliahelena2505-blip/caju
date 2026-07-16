@@ -19,8 +19,7 @@ export default function Dashboard({ leads, alerts, abrirLead, updateLead, toast 
     { label: 'Respostas', abs: m.respostas, taxa: m.taxaResposta, taxaLabel: 'taxa de resposta' },
     { label: 'Leads Qualificados', abs: m.lqs, taxa: m.taxaQualificacao, taxaLabel: 'taxa de qualificação' },
     { label: 'Reuniões Agendadas', abs: m.agendadas, taxa: m.taxaAgendamento, taxaLabel: 'taxa de agendamento' },
-    { label: 'Reuniões Realizadas', abs: m.realizadas, taxa: m.taxaComparecimento, taxaLabel: 'comparecimento' },
-    { label: 'Propostas Apresentadas', abs: m.propostas, taxa: m.conversaoReuniao, taxaLabel: 'conversão da reunião' },
+    { label: 'Propostas Apresentadas', abs: m.propostas, taxa: m.conversaoReuniao, taxaLabel: 'conversão da proposta' },
     { label: 'Compras (fechados)', abs: m.compras, taxa: m.taxaFechamento, taxaLabel: 'taxa de fechamento' },
   ]
 
@@ -48,6 +47,11 @@ export default function Dashboard({ leads, alerts, abrirLead, updateLead, toast 
             {a.tipo === 'reuniao' && (
               <button className="btn mini sec" onClick={() => abrirLead(a.leadId)}>
                 Abrir
+              </button>
+            )}
+            {a.tipo === 'engajamento' && (
+              <button className="btn mini sec" onClick={() => abrirLead(a.leadId)}>
+                Ver
               </button>
             )}
           </div>
@@ -144,7 +148,6 @@ export default function Dashboard({ leads, alerts, abrirLead, updateLead, toast 
             <Tooltip />
             <Legend wrapperStyle={{ fontSize: 12 }} />
             <Bar dataKey="abordagens" name="Abordagens" fill={CORES.caju} radius={[6, 6, 0, 0]} />
-            <Bar dataKey="reunioes" name="Reuniões realizadas" fill={CORES.castanha} radius={[6, 6, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
