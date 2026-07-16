@@ -1,3 +1,5 @@
+import { loadLeadsFromFirebase, saveLead, saveAllLeads } from './firebase.js'
+
 // ---------- Constantes ----------
 export const ESTAGIOS = [
   { id: 'engajamento', label: 'Engajamento' },
@@ -43,24 +45,43 @@ const KEY = 'caju-crm-v1'
 const DIA = 24 * 60 * 60 * 1000
 
 // ---------- Persistência ----------
-export function loadState() {
+export async function loadState() {
+  try {
+    // Tenta carregar do Firebase primeiro
+    const leadsFirebase = await loadLeadsFromFirebase()
+    if (leadsFirebase.length > 0) {
+      return {
+        leads: leadsFirebase,
+        settings: { apiKey: '', model: 'claude-haiku-4-5-20251001', estiloPadrao: 'auto' }
+      }
+    }
+  } catch (e) {
+    console.error('Erro ao carregar do Firebase:', e)
+  }
+
+  // Fallback: localStorage
   try {
     const raw = localStorage.getItem(KEY)
     if (raw) return JSON.parse(raw)
   } catch (e) {
     console.error('Falha ao ler localStorage', e)
   }
+
   const seeded = { leads: seedLeads(), settings: { apiKey: '', model: 'claude-haiku-4-5-20251001', estiloPadrao: 'auto' } }
   saveState(seeded)
   return seeded
 }
 
 export function saveState(state) {
+  // Salva no localStorage como backup
   try {
     localStorage.setItem(KEY, JSON.stringify(state))
   } catch (e) {
     console.error('Falha ao salvar localStorage', e)
   }
+
+  // Salva no Firebase
+  saveAllLeads(state.leads).catch((e) => console.error('Erro ao salvar no Firebase:', e))
 }
 
 export function exportJSON(state) {
